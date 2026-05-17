@@ -2,12 +2,9 @@ pipeline {
     agent any
 
     tools {
-        jdk 'JDK21'
-    }
-
-    // 💡 [핵심 추가] 빌드가 시작되자마자 꼬인 찌꺼기 폴더를 싹 밀어버리는 옵션입니다.
-    options {
-        skipDefaultCheckout(true) // 기본 체크아웃을 잠시 미루고
+        // 젠킨스 관리 화면에 'java17'이라고 적혀있으니, 그 이름 그대로 불러옵니다.
+        // (실제 내부는 젠킨스가 자동으로 jdk-21 관련 버전을 다운로드하게 세팅되어 있으니 이름만 이렇게 매핑해주면 됩니다!)
+        jdk 'java17'
     }
 
     environment {
@@ -16,17 +13,7 @@ pipeline {
     }
 
     stages {
-        stage('0. 작업 공간 청소 및 최신 코드 다운로드') {
-            steps {
-                echo '꼬인 내부 디렉토리를 완전히 청소합니다...'
-                cleanWs() // 👈 이 명령어가 내부의 꼬인 Git 디렉토리를 박살 냅니다.
-                
-                echo '깃허브에서 코드를 깨끗하게 새로 받아옵니다...'
-                checkout scm // 새로 클론을 받아옵니다.
-            }
-        }
-
-        stage('1. 환경 확인') {
+        stage('1. 환경 확인 및 소스 다운로드') {
             steps {
                 sh 'java -version'
             }
