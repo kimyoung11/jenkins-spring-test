@@ -2,10 +2,8 @@ pipeline {
     agent any
 
     tools {
-        // 젠킨스 관리 화면에 매핑된 자바 이름
+        // 에러 나던 dockerTool은 깔끔하게 지우고 자바만 남겨둡니다.
         jdk 'java17'
-        // 💡 [핵심 추가] 젠킨스가 내부적으로 도커 CLI 명령어를 쓸 수 있도록 도구를 다운로드합니다.
-        dockerTool 'latest' 
     }
 
     environment {
@@ -27,10 +25,12 @@ pipeline {
             }
         }
 
+        // 💡 [핵심 변경] 젠킨스 방 안의 docker 대신, 공유된 소켓(/var/run/docker.sock)을 통해 
+        // 맥북 거실에 있는 도커 엔진을 직접 호출하여 이미지를 굽습니다.
         stage('3. 도커 이미지 빌드 (Docker Build)') {
             steps {
                 echo '스프링 부트 JDK 21 도커 이미지를 굽습니다...'
-                // 이제 내부 도커 툴 덕분에 이 명령어 구문이 정상 작동합니다!
+                // 현재 작업 공간의 Dockerfile을 기반으로 이미지를 생성합니다.
                 sh "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
