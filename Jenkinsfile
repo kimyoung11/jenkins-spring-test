@@ -2,9 +2,10 @@ pipeline {
     agent any
 
     tools {
-        // 젠킨스 관리 화면에 'java17'이라고 적혀있으니, 그 이름 그대로 불러옵니다.
-        // (실제 내부는 젠킨스가 자동으로 jdk-21 관련 버전을 다운로드하게 세팅되어 있으니 이름만 이렇게 매핑해주면 됩니다!)
+        // 젠킨스 관리 화면에 매핑된 자바 이름
         jdk 'java17'
+        // 💡 [핵심 추가] 젠킨스가 내부적으로 도커 CLI 명령어를 쓸 수 있도록 도구를 다운로드합니다.
+        dockerTool 'latest' 
     }
 
     environment {
@@ -29,6 +30,7 @@ pipeline {
         stage('3. 도커 이미지 빌드 (Docker Build)') {
             steps {
                 echo '스프링 부트 JDK 21 도커 이미지를 굽습니다...'
+                // 이제 내부 도커 툴 덕분에 이 명령어 구문이 정상 작동합니다!
                 sh "docker build -t ${IMAGE_NAME}:latest ."
             }
         }
