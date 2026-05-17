@@ -10,6 +10,7 @@ public class JenkinsSpringTestApplication {
 		System.out.println("---START---");
 		SpringApplication.run(JenkinsSpringTestApplication.class, args);
 		System.out.println("---END2---");
+		System.out.println("---END3---");
 	}
 
 }
