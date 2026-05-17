@@ -20,7 +20,7 @@ public class JenkinsSpringTestApplication {
 		SpringApplication.run(JenkinsSpringTestApplication.class, args);
 		System.out.println("비밀번호 테스트 : " + dbPassword);
 		System.out.println("---END2---");
-		System.out.println("---END3---");
+		System.out.println("---END4---");
 	}
 
 }
