@@ -6,7 +6,6 @@ pipeline {
     }
 
     environment {
-        // 젠킨스 금고에서 토큰을 꺼내와 변수에 장착
         DB_PASSWORD = credentials('my-db-password-token')
         IMAGE_NAME  = 'my-spring-app'
     }
@@ -18,19 +17,17 @@ pipeline {
 
         stage('4. 멀티 컨테이너 일괄 배포 (Docker Compose Deploy)') {
             steps {
-                echo '보안 래핑을 적용하여 맥북 도커 엔진에서 컴포즈 배포를 수행합니다...'
+                echo '맥북 호스트 도커 엔진을 직접 제어하여 도커 컴포즈 배포를 수행합니다...'
                 
-                // 💡 [핵심 변경] 큰따옴표 내부에 Groovy 변수를 직접 찌르면 보안 경고가 뜹니다.
-                // 아래처럼 싱글 쿼트('') 래핑 환경에서 주입하면 경고(Warning)가 완벽히 사라집니다!
                 withEnv(["DB_PASSWORD=${DB_PASSWORD}"]) {
-                    
-                    // 1. 기존 구버전 서비스 세트를 청소합니다. (도커 기본 명령어 'rm -f' 활용)
+                    // 1. 기존에 포트 충돌을 일으킬 수 있는 구버전 컨테이너들을 도커 기본 명령어로 확실하게 밀어버립니다.
                     sh 'docker rm -f my-spring-app-container mysql-db-container || true'
                     
-                    // 2. [치트키] 젠킨스 방 안에서 컴포즈를 안 치고, 
-                    // 공유된 소켓을 통해 맥북 거실 엔진에게 "야! 내 방에 있는 docker-compose.yml 파일 읽어서 컨테이너 세트 띄워!"라고 직접 명령을 하사합니다.
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/app -w /app -e DB_PASSWORD=$DB_PASSWORD docker/compose:1.29.2 down || true'
-                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/app -w /app -e DB_PASSWORD=$DB_PASSWORD docker/compose:1.29.2 up -d'
+                    // 2. 💡 [최종 치트키] 젠킨스가 내부 도커를 쓰는 대신, 
+                    // 공유된 소켓 너머에 있는 맥북 거실의 진짜 최신 도커 엔진에게 컴포즈 파일의 경로를 찔러 넣어 실행시킵니다.
+                    // 이렇게 하면 맥북이 알아서 내부에 내장된 최신 docker compose 명령어로 완벽하게 세트를 구동합니다!
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v jenkins_home:/var/jenkins_home docker:cli sh -c "cd /var/jenkins_home/workspace/spring-pipeline-job && DB_PASSWORD=$DB_PASSWORD docker compose down || true"'
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v jenkins_home:/var/jenkins_home docker:cli sh -c "cd /var/jenkins_home/workspace/spring-pipeline-job && DB_PASSWORD=$DB_PASSWORD docker compose up -d"'
                 }
             }
         }
