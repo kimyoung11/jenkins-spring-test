@@ -23,10 +23,10 @@ pipeline {
                 echo '도커 컴포즈를 사용해 구버전 서비스를 내리고, 스프링+MySQL 세트를 새롭게 띄웁니다...'
                 
                 // 1. 기존에 돌고 있던 컴포즈 세트(스프링, DB, 가상 네트워크)를 안전하게 중지하고 삭제합니다.
-                sh "docker compose down || true"
+                sh "docker-compose down || true"
                 
                 // 2. 환경변수(DB_PASSWORD)를 컴포즈 파일에 실어서 백그라운드(-d)로 세트를 통째로 구동합니다.
-                sh "DB_PASSWORD=${DB_PASSWORD} docker compose up -d"
+                sh "DB_PASSWORD=${DB_PASSWORD} docker-compose up -d"
             }
         }
     }
