@@ -1,0 +1,53 @@
+version: '3.8'
+
+# 🌐 1. 두 컨테이너가 외부 간섭 없이 서로 이름으로 자유롭게 통신할 수 있도록 가상 네트워크를 개설합니다.
+networks:
+  spring-mysql-net:
+    driver: bridge
+
+# 💾 2. MySQL 컨테이너가 꺼지거나 재부팅되어도 내가 저장한 DB 데이터가 날아가지 않도록 안전 금고(볼륨)를 파둡니다.
+volumes:
+  mysql_data:
+
+services:
+  # ----------------------------------------------------
+  # 🐬 [DATABASE] MySQL 컨테이너 설정
+  # ----------------------------------------------------
+  db:
+    image: mysql:8.0                     # 사용할 도커 공식 이미지 규격
+    container_name: mysql-db-container   # 컨테이너 이름 고정
+    environment:
+      MYSQL_ROOT_PASSWORD: root          # root 계정 비밀번호 (실무에선 감춰야 하지만 로컬용으로 세팅)
+      MYSQL_DATABASE: my_app_db          # 스프링 부트가 접속해서 사용할 기본 데이터베이스 이름 자동 생성
+    ports:
+      - "3306:3306"                      # 맥북 거실(3306)과 컨테이너 내부(3306) 다리 연결 (DBeaver 접속용)
+    volumes:
+      - mysql_data:/var/lib/mysql        # 위에서 만든 mysql_data 금고에 진짜 DB 데이터를 저장함 (영속성 확보)
+    networks:
+      - spring-mysql-net                 # 개설한 가상 네트워크에 참여시킴
+    # 💡 MySQL은 켜지자마자 바로 일을 못하고 예열 시간이 필요하므로, 헬스체크 설정을 넣어 스프링이 기다릴 수 있게 합니다.
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------
+  # 🍃 [BACKEND] 스프링 부트 컨테이너 설정
+  # ----------------------------------------------------
+  app:
+    image: my-spring-app:latest          # 젠킨스가 3단계에서 빌드해서 구워줄 최신 이미지 이름
+    container_name: my-spring-app-container
+    ports:
+      - "8082:8081"                      # 젠킨스 충돌 회피를 위해 맥북 외부 포트는 8082, 컨테이너 내부는 8081로 뚫음
+    environment:
+      # 💡 [핵심] 이제 DB 주소를 localhost가 아니라, 위에서 정의한 서비스 이름인 'db'로 적으면 도커가 알아서 찾아줍니다!
+      SPRING_DATASOURCE_URL: jdbc:mysql://db:3306/my_app_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root   # db 서비스의 MYSQL_ROOT_PASSWORD와 일치시킴
+    networks:
+      - spring-mysql-net                 # DB와 같은 가상 네트워크에 참여하여 'db:3306'으로 다이렉트 통신 가능하게 함
+    # 💡 DB 예열이 완전히 끝날 때까지(healthy 상태가 될 때까지) 스프링 부트 구동을 대기시키는 안전장치입니다.
+    depends_on:
+      db:
+        condition: service_healthy
