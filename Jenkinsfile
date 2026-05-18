@@ -6,8 +6,7 @@ pipeline {
     }
 
     environment {
-        // 도커 컴포즈가 인식할 수 있도록 환경 변수를 선언합니다.
-        // 젠킨스 금고에서 꺼낸 비밀번호를 컴포즈 안의 MySQL root 패스워드와 스프링 패스워드로 동시 주입합니다.
+        // 젠킨스 금고에서 토큰을 꺼내와 변수에 장착
         DB_PASSWORD = credentials('my-db-password-token')
         IMAGE_NAME  = 'my-spring-app'
     }
@@ -17,19 +16,21 @@ pipeline {
         stage('2. Gradle 빌드') { steps { sh './gradlew clean build -x test' } }
         stage('3. 도커 이미지 빌드 (Docker Build)') { steps { sh "docker build -t ${IMAGE_NAME}:latest ." } }
 
-        // 💡 [2교시 핵심 변경 영역] 수동 명령어를 싹 걷어내고 컴포즈 명령어로 대체합니다.
-                stage('4. 멀티 컨테이너 일괄 배포 (Docker Compose Deploy)') {
+        stage('4. 멀티 컨테이너 일괄 배포 (Docker Compose Deploy)') {
             steps {
-                echo '젠킨스 환경변수 래핑을 통해 안전하게 도커 컴포즈 배포를 수행합니다...'
+                echo '보안 래핑을 적용하여 맥북 도커 엔진에서 컴포즈 배포를 수행합니다...'
                 
-                // 💡 [핵심] DB_PASSWORD를 젠킨스가 안전하게 인식하도록 환경변수 블록으로 감쌉니다.
-                // 이 블록 안에서는 'docker compose' 최신 문법이 맥북 엔진으로 고스란히 전달됩니다!
+                // 💡 [핵심 변경] 큰따옴표 내부에 Groovy 변수를 직접 찌르면 보안 경고가 뜹니다.
+                // 아래처럼 싱글 쿼트('') 래핑 환경에서 주입하면 경고(Warning)가 완벽히 사라집니다!
                 withEnv(["DB_PASSWORD=${DB_PASSWORD}"]) {
-                    // 1. 기존 서비스를 내립니다.
-                    sh "docker compose down || true"
                     
-                    // 2. 환경변수가 주입된 상태로 새 컴포즈 세트를 백그라운드(-d)로 구동합니다.
-                    sh "docker compose up -d"
+                    // 1. 기존 구버전 서비스 세트를 청소합니다. (도커 기본 명령어 'rm -f' 활용)
+                    sh 'docker rm -f my-spring-app-container mysql-db-container || true'
+                    
+                    // 2. [치트키] 젠킨스 방 안에서 컴포즈를 안 치고, 
+                    // 공유된 소켓을 통해 맥북 거실 엔진에게 "야! 내 방에 있는 docker-compose.yml 파일 읽어서 컨테이너 세트 띄워!"라고 직접 명령을 하사합니다.
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/app -w /app -e DB_PASSWORD=$DB_PASSWORD docker/compose:1.29.2 down || true'
+                    sh 'docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v "$PWD":/app -w /app -e DB_PASSWORD=$DB_PASSWORD docker/compose:1.29.2 up -d'
                 }
             }
         }
